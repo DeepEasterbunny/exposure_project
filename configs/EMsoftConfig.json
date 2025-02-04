@@ -1,0 +1,15 @@
+{
+	"EMsoftpathname": "/zhome/31/8/154954/denoising_in_TKD/EMsoft",
+	"EMXtalFolderpathname": "/work3/s203768/EMSoftData/xtalfiles",
+	"EMdatapathname": "/work3/s203768/EMSoftData",
+	"EMtmppathname": "/zhome/31/8/154954/.config/EMsoft/tmp/",
+	"EMsoftLibraryLocation": "/zhome/31/8/154954/denoising_in_TKD/EMsoftBuild/Release/Bin",
+	"Release": "Yes",
+	"Develop": "No",
+	"UserName": "s203768",
+	"UserEmail": "s203768@dtu.dk",
+	"UserLocation": "DTU"
+}
+
+
+

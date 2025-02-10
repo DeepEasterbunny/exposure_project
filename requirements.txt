@@ -1,5 +1,5 @@
 invoke==2.2.0
-ipython==8.31.0
+ipython==8.32.0
 matplotlib==3.10.0
 numpy==2.2.1
 torch==2.5.1

@@ -1,0 +1,38 @@
+opencl:
+  sig: 0.0
+  thickness: 30.0 
+  Ehistmin: 10
+  numsx: 501
+
+master:
+  nthreads: 24
+  npx: 500
+  dmin: 0.05
+  
+detector:
+  pcx: [0.0, 0.80]
+  pcy: [0.0, 0.80]
+  pcz: 0.5
+  height: 75
+  width: 100
+  sample_tilt: [0.0, 50.0]
+
+experiments:
+  n_master_patterns: 1
+  n_detector_angels: 50
+  use_eulers: 1
+
+paths:
+  euler_path: '/work3/s203768/EMSoftData/angle/evenly_spaced_angles.txt'
+  emsoft_bin: '/zhome/31/8/154954/denoising_in_TKD/EMsoftBuild/Release/Bin/'
+  emsoft_data: '/work3/s203768/EMSoftData/'
+  mp: '/work3/s203768/EMSoftData/simulations_ebsd/'
+  torch_data: '/work3/s203768/EMSoftData/torch/'
+  images: '/work3/s203768/EMSoftData/figs/'
+  xtal: '/work3/s203768/EMSoftData/xtalfiles'
+  bash: '/zhome/31/8/154954/exposure_project/bash/'
+  real: '/work3/s203768/Real/'
+  dicts: '/work3/s203768/EMSoftData/dicts/'
+  indexing: '/work3/s203768/EMSoftData/indexing_result_refined.h5'
+
+  

@@ -7,7 +7,7 @@
 ! this file will also contain the output data of the master program
  energyfile = 'simulations/foil_output.h5',
 ! number of OpenMP threads
- nthreads = 2,
+ nthreads = 24,
 ! setting this parameter to .TRUE. forces the program to add all atom contributions together
 ! instead of keeping them separate, which is the default; this option can be used to keep the
 ! master file for structures with many atoms in the asymmetric unit to a manageable size.

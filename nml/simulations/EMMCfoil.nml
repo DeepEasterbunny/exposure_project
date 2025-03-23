@@ -2,9 +2,9 @@
 ! name of the crystal structure file
  xtalname = 'Ni.xtal',
 ! for full mode: sample tilt angle from horizontal [degrees]
- sig = -20.0,
+ sig = 20.0,
 ! sample tilt angle around RD axis [degrees]
- omega = 0.0,
+ omega = 0.0,   ! other direction to roll in keep at zero
 ! number of pixels along x-direction of square projection [odd number!]
  numsx = 501,
 ! number of incident electrons per thread
@@ -12,24 +12,24 @@
 ! GPU platform ID selector
  platid = 1,
 ! GPU device ID selector
- devid = 0,
+ devid = 1,
 ! number of work items (depends on GPU card; leave unchanged)
  globalworkgrpsz = 150,
 ! total number of incident electrons and multiplier (to get more than 2^(31)-1 electrons)
  totnum_el = 2000000000,
  multiplier = 1,
 ! incident beam energy [keV]
- EkeV = 30.D0,
+ EkeV = 30.D0, 
 ! minimum energy to consider [keV]
- Ehistmin = 10.D0,
+ Ehistmin = 10.D0, 
 ! energy binsize [keV]
- Ebinsize = 1.0D0,
+ Ebinsize = 1.0D0,  
 ! max depth [nm] (this is the maximum distance from the bottom foil surface to be considered)
- depthmax = 100.0D0,
+ depthmax = 30.0D0,  
 ! depth step size [nm]
  depthstep = 1.0D0,
 ! total foil thickness (must be larger than depth)
- thickness = 100.0,
+ thickness = 30.0, 
 ! output data file name; pathname is relative to the EMdatapathname path !!!
  dataname = 'simulations/foil_output.h5'
  /

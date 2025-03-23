@@ -1,0 +1,33 @@
+batchSize: 1 
+nThreads: 4
+image-size:
+  loadSize: 286  # scale images to this size
+  fineSize: 256  # then crop to this size
+
+input_nc: 1  # # of input image channels
+output_nc: 1  # # of output image channels
+ngf: 64
+ndf: 64
+train_split: 0.95
+data_path: '/work3/s203768/EMSoftData/torch/Fe-master-30kV-sig-0-thickness-300.pt'
+
+optimizer:
+  epochs: 300  # # of iter at starting learning rate
+  lr: 0.0002  # initial learning rate for adam
+  beta1: 0.5  # momentum term of adam
+  ntrain: inf  # # of examples per epoch. inf for full dataset
+augment:
+  flip: 1  # if flip the images for data augmentation
+
+saving:
+  save_epoch_freq: 50  
+  print_freq: 3000  
+  display_freq: 100 
+  save_display_freq: 5000  
+  continue_train: 0  
+  checkpoints_dir: '/work3/s203768/EMSoftData/checkpoints' 
+  figure_dir: '/work3/s203768/EMSoftData/figs/training' 
+loss:
+  use_GAN: 1  # set to 0 to turn off GAN term
+  use_L1: 1  # set to 0 to turn off L1 term
+  lambda_L1: 100  # weight on L1 term in objective

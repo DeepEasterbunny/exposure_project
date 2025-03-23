@@ -1,18 +1,37 @@
 foil:
-  xtalname: 'Ni.xtal'
-  sig: 20.0
-  omega: 0.0
-  EkeV: 30
-  Ehistmin: 15
-  thickness: 100
+  sig: 0.0
+  thickness: [20.0, 50.0] 
+  Ehistmin: 10
+  numsx: 501
 
-EMTKD:
-  thetac: 10.0
-  xpc: 0
-  ypc: 320
-  omega: 0.0
-  energymin: 22.0
-  energymax: 30.0
-  dwelltime: 100 
+master:
+  nthreads: 24
+  npx: 500
+  dmin: 0.05
+  
+detector:
+  pcx: [0.0, 0.80]
+  pcy: [0.0, 0.80]
+  pcz: 0.5
+  height: 480
+  width: 640
+  sample_tilt: [0.0, 50.0]
+
+experiments:
+  n_master_patterns: 2
+  n_detector_angels: 50
+  use_eulers: 0
+
+paths:
+  euler_path: '/work3/s203768/EMSoftData/angle/Ni_angle.txt'
+  emsoft_bin: '/zhome/31/8/154954/denoising_in_TKD/EMsoftBuild/Release/Bin/'
+  emsoft_data: '/work3/s203768/EMSoftData/'
+  torch_data: '/work3/s203768/EMSoftData/torch/'
+  mp: '/work3/s203768/EMSoftData/simulations/'
+  images: '/work3/s203768/EMSoftData/figs/'
+  xtal: '/work3/s203768/EMSoftData/xtalfiles'
+  bash: '/zhome/31/8/154954/exposure_project/bash/'
+  real: '/work3/s203768/Real/'
+  dicts: '/work3/s203768/EMSoftData/dicts/'
 
   

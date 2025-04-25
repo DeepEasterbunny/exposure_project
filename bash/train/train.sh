@@ -1,16 +1,22 @@
 #!/bin/sh
 #BSUB -q gpuv100
-#BSUB -J training
+#BSUB -J Train_gpu
 #BSUB -n 4
+#BSUB -gpu "num=1:mode=exclusive_process"
 #BSUB -W 8:00
-#BSUB -R "rusage[mem=4GB]"
+#BSUB -R "rusage[mem=5GB]"
 #BSUB -u s203768@dtu.dk
-#BSUB -B
-#BSUB -N
-#BSUB -o hpc_out/training/%J.out
-#BSUB -e hpc_out/training/%J.err
+###BSUB -B
+###BSUB -N
+#BSUB -o hpc_out/training/%J_gpu.out
+#BSUB -e hpc_out/training/%J_gpu.err
 
-module load cuda
+
+# 
+# export CUDA_LAUNCH_BLOCKING=1
+# Load the cuda module
+module load cuda/11.8
+# nvidia-smi
 
 source ../tkd/bin/activate
 

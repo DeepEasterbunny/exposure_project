@@ -28,6 +28,7 @@ import typer
 
 # SET TO FALSE LATER
 PROGRESS_BARS = True
+CREATE_DATASET = True
 
 def main(cfg_path:str = 'configs/config_ebsd.yaml'):
     print(f"Using config path: {cfg_path}")
@@ -52,10 +53,7 @@ def main(cfg_path:str = 'configs/config_ebsd.yaml'):
     
     num_mps = len(mp_names)
 
-    if use_eulers:
-        euler_path = cfg['paths']['euler_path']
-    else:
-        n_rots = cfg['experiments']['n_detector_angels']
+    
     
     for i, master_pattern in enumerate(mp_names):
         file_name = str(master_pattern).split(sep = '/')[-1]
@@ -99,17 +97,6 @@ def main(cfg_path:str = 'configs/config_ebsd.yaml'):
             tilt=camera_tilt,
             convention="bruker"
         )
-        
-        # Load rotations
-        # if use_eulers:
-        #     rots = rotationFromEuler(anlgefile = euler_path)
-        # else:
-        #     rots = Rotation.random(n_rots)
-        
-        # detector_values = get_values_from_config(cfg['detector'])
-        
-
-        # detector = createDetector(detector_values)
 
         detector_values = {"shape": (Qx, Qy),
                            "pc": [PCX.mean(), PCY.mean(), DD.mean()],
@@ -118,6 +105,14 @@ def main(cfg_path:str = 'configs/config_ebsd.yaml'):
         
 
         xmap = io.load(cfg['paths']['indexing'])
+
+        if use_eulers:
+            euler_path = cfg['paths']['euler_path']
+        else:
+            n_rots = cfg['experiments']['n_detector_angels']
+
+        # G = rotationFromEuler(euler_path)
+        # G = G.reshape(Ny, Nx)
         
         G = xmap.orientations
         G = G.reshape(Ny, Nx)
@@ -126,16 +121,42 @@ def main(cfg_path:str = 'configs/config_ebsd.yaml'):
         print("Getting patterns")
         s = mp_lp.get_patterns(rotations = G, detector = detector, show_progressbar=PROGRESS_BARS, compute = True)
         s.save(dict_name)
-        s_data =s.data.reshape(-1, 75, 100)
-        print(s_data.shape)
-        print(real_patterns.shape)
+        # Which way does reshape work? (Ny, Nx, 75, 100) -> (Ny x Nx, 75, 100), stack the collumns
 
-        real_patterns_scaled = (real_patterns - real_patterns.min(axis=(1, 2), keepdims=True)) / \
-                       (real_patterns.max(axis=(1, 2), keepdims=True) - real_patterns.min(axis=(1, 2), keepdims=True))
+        if CREATE_DATASET:
+            s_data =s.data.reshape(-1, 75, 100)
 
-        dataset = KikuchiDataset(fake = s_data[:-1], real = real_patterns_scaled, detector_values=detector_values)
+            # real_patterns (39711 x 75 x 100)
+            # Remove 183th index
 
-        torch.save({"fake":dataset.fake, "real": dataset.real, "detector_values": detector_values}, file_name)
+            real_patterns_scaled = (real_patterns - real_patterns.min(axis=(1, 2), keepdims=True)) / \
+                        (real_patterns.max(axis=(1, 2), keepdims=True) - real_patterns.min(axis=(1, 2), keepdims=True))
+            
+            fake = np.delete(s_data, 183, axis=0)
+
+            fig, axes = plt.subplots(5, 2, figsize=(7, 14))
+            for i in range(5):
+                axes[i, 0].imshow(real_patterns[5000*i,:,:], cmap='gray')
+                axes[i, 0].set_title('Real')
+                axes[i, 0].axis('off')
+
+                axes[i, 1].imshow(fake[5000*i,:,:], cmap='gray')
+                axes[i, 1].set_title('Fake')
+                axes[i, 1].axis('off')
+
+            plt.suptitle(f'Data and fake data')
+            plt.savefig('/work3/s203768/data_and_fake_data_0_sig_Ni.png')
+            plt.close(fig)
+            rots_reshaped = G.data.reshape(-1, 4)
+            print(rots_reshaped[:10])
+            rots_reshaped = np.delete(rots_reshaped, 183, axis=0)
+            rots_reshaped = torch.tensor(rots_reshaped, dtype=torch.float32)
+            print(rots_reshaped.shape)
+            # Find unique rows (unique 1x1x4 arrays)
+
+            dataset = KikuchiDataset(fake = fake, real = real_patterns_scaled, detector_values=detector_values, rots = rots_reshaped)
+
+            torch.save({"fake":dataset.fake, "real": dataset.real, "detector_values": detector_values, "rots": dataset.rots}, file_name)
 
 
 def get_mps(mp_path:str):

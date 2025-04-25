@@ -7,4 +7,4 @@
 #BSUB -o hpc_out/opencl_sender_%J.out
 #BSUB -e hpc_out/opencl_sender_%J.err
 
-bsub -env "all,NML_FILE_OPENCL=nml/simulations_ebsd/Fe-master-30kV-sig-0-thickness-300-opencl.nml,NML_FILE_MASTER=nml/simulations_ebsd/Fe-master-30kV-sig-0-thickness-300-master.nml" < bash/opencl_adaptive.sh
+bsub -env "all,NML_FILE_OPENCL=nml/simulations_ebsd/Ni-master-30kV-sig-0-thickness-300-opencl.nml,NML_FILE_MASTER=nml/simulations_ebsd/Ni-master-30kV-sig-0-thickness-300-master.nml" < bash/opencl_adaptive.sh

@@ -89,7 +89,7 @@ def create_nmls(cfg, xtal_name):
         f.write(" mode = 'full',\r\n")
         f.write(f" xtalname = '{xtal_name}',\r\n")
         f.write(" numsx = 501,\r\n")
-        f.write(" sig = 70.0,\r\n")
+        f.write(" sig = 0.0,\r\n")
         f.write(" omega = 0.0,\r\n")
         f.write(" sigstart = 0.0,\r\n")
         f.write(" sigend = 30.0,\r\n")

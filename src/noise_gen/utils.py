@@ -3,6 +3,7 @@ import torch
 import torchvision.transforms.functional as TF
 from torchvision import transforms
 import matplotlib.pyplot as plt
+import numpy as np
 import os
 
 def initialize_weights(m):
@@ -16,47 +17,62 @@ def initialize_weights(m):
         nn.init.constant_(m.bias.data, 0)
 
 
-def compute_static_background(device, data_loader = None, model = None):
+def compute_static_background_im(im, static_background, total_images):
+    static_background += im.sum(dim=0)
+    total_images += im.size(0)
+
+    vflipped = TF.vflip(im)
+    static_background += vflipped.sum(dim=0)
+    total_images += vflipped.size(0)
+
+    hflipped = TF.hflip(im)
+    static_background += hflipped.sum(dim=0)
+    total_images += hflipped.size(0)
+
+    vhflipped = TF.hflip(vflipped)
+    static_background += vhflipped.sum(dim=0)
+    total_images += vhflipped.size(0)
+
+    return static_background, total_images
+
+
+
+def compute_static_background(device, data_loader = None, model = None, batch = None):
 
     static_background = torch.zeros(device=device, size = (1, 128,128))
     total_images = 0
+
+    assert not ((data_loader != None) and (batch != None)), "Please provide only one of a Dataloader or batch"
+    assert not ((data_loader == None) and (batch == None)), "Please provide either a dataloader or a batch"
+
+    if batch is not None:
+        static_background, total_images = compute_static_background_im(batch, static_background, total_images)
     
-    for data in data_loader:
-        # If a model is provided, load the synthetic image, and apply the model
-        # Else just compute the static background of experimental images
-        if model == None:
-            _, im, _, _ = data
-        else:
-            im, _, _, _ = data
+    if data_loader is not None:
+        for data in data_loader:
+            # If a model is provided, load the synthetic image, and apply the model
+            # Else just compute the static background of experimental images
+            if model == None:
+                _, im, _, _ = data
+            else:
+                im, _, _, _ = data
+                im = im.to(device)
+                im = model(im)
+
             im = im.to(device)
-            im = model(im)
-        
-        im = im.to(device)
-        static_background += im.sum(dim=0)
-        total_images += im.size(0)
+            static_background, total_images = compute_static_background_im(im, static_background, total_images)
 
-        vflipped = TF.vflip(im)
-        static_background += vflipped.sum(dim=0)
-        total_images += vflipped.size(0)
-
-        hflipped = TF.hflip(im)
-        static_background += hflipped.sum(dim=0)
-        total_images += hflipped.size(0)
-
-        vhflipped = TF.hflip(vflipped)
-        static_background += vhflipped.sum(dim=0)
-        total_images += vhflipped.size(0)
     static_background = static_background.requires_grad_(True)
-    # print(static_background)
+    
     return  static_background / total_images
 
 def visualize_images(netG, test_loader, device, resize_transform, epoch, cfg):
     netG.eval()
     with torch.no_grad():
         fig, axes = plt.subplots(5, 3, figsize=(10, 13))
-        for i, data in enumerate(test_loader, 0):
-            if i >= 5:
-                break
+        i = 0
+        for data in test_loader:
+    
             input, target, _, _ = data
             input = input.to(device)
             target = target.to(device)
@@ -67,18 +83,22 @@ def visualize_images(netG, test_loader, device, resize_transform, epoch, cfg):
             output = resize_transform(output.cpu())
             target= resize_transform(target.cpu())
 
+            for _ in range(input.size(0)):
+                if i >= 5:
+                    break
+                axes[i, 0].imshow(input[i,0,:,:], cmap='gray')
+                axes[i, 0].set_title('Input')
+                axes[i, 0].axis('off')
 
-            axes[i, 0].imshow(input[0,0,:,:], cmap='gray')
-            axes[i, 0].set_title('Input')
-            axes[i, 0].axis('off')
+                axes[i, 1].imshow(output[i,0,:,:], cmap='gray')
+                axes[i, 1].set_title('Output')
+                axes[i, 1].axis('off')
 
-            axes[i, 1].imshow(output[0,0,:,:], cmap='gray')
-            axes[i, 1].set_title('Output')
-            axes[i, 1].axis('off')
-
-            axes[i, 2].imshow(target[0,0,:,:], cmap = 'gray')
-            axes[i, 2].set_title('Target')
-            axes[i, 2].axis('off')
+                axes[i, 2].imshow(target[i,0,:,:], cmap = 'gray')
+                axes[i, 2].set_title('Target')
+                axes[i, 2].axis('off')
+                i += 1
+        
 
         plt.suptitle(f'Epoch {epoch}')
         plt.savefig(os.path.join(cfg['saving']['figure_dir'], f'epoch_{epoch}_generated_images_no_kp.png'))
@@ -104,4 +124,42 @@ def visualize_static_background(netG, test_loader, device, experimental_static_b
 
     plt.suptitle(f'Static Background Comparison at Epoch {epoch}')
     plt.savefig(os.path.join(cfg['saving']['figure_dir'], f'epoch_{epoch}_static_background_comparison.png'))
+    plt.close(fig)
+
+
+def plot_losses(G_train_loss, L1_train_loss, sb_train_loss, G_test_loss, L1_test_loss, sb_test_loss, cfg):
+    epoch = len(G_train_loss)
+    epochs = range(epoch)
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    axes[0].plot(epochs, G_train_loss)
+    axes[0].plot(epochs, G_test_loss)
+    axes[0].set_title('Generator loss')
+    axes[0].set_xlabel('Epoch')
+    axes[0].set_ylabel('Loss')
+    axes[0].legend(['Train', 'Test'])
+
+    axes[0].plot(epochs, G_train_loss)
+    axes[0].plot(epochs, G_test_loss)
+    axes[0].set_title('Generator loss')
+    axes[0].set_xlabel('Epoch')
+    axes[0].set_ylabel('Loss')
+    axes[0].legend(['Train', 'Test'])
+
+    axes[1].plot(epochs, L1_train_loss)
+    axes[1].plot(epochs, L1_test_loss)
+    axes[1].set_title('L1 loss')
+    axes[1].set_xlabel('Epoch')
+    axes[1].set_ylabel('Loss')
+    axes[1].legend(['Train', 'Test'])
+
+    axes[2].plot(epochs, sb_train_loss)
+    axes[2].plot(epochs, sb_test_loss)
+    axes[2].set_title('Static Background loss')
+    axes[2].set_xlabel('Epoch')
+    axes[2].set_ylabel('Loss')
+    axes[2].legend(['Train', 'Test'])
+
+    plt.suptitle(f'Loss functions at epoch: {epoch}')
+    plt.savefig(os.path.join(cfg['saving']['figure_dir'], f'loss_funs.png'))
     plt.close(fig)

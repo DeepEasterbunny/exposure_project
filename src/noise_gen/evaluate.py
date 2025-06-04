@@ -11,8 +11,8 @@ from utils import compute_static_background
 import orix.quaternion as oqu
 import matplotlib.pyplot as plt
 
-GENERATOR_PATH = '/work3/s203768/EMSoftData/checkpoints/flips/60_net_G.pth'
-DICT_PATH = '/work3/s203768/EMSoftData/dicts/Dict_Ni_in_use.h5'
+GENERATOR_PATH = '/work3/s203768/EMSoftData/checkpoints/flips/final_net_G.pth'
+DICT_PATH = '/work3/s203768/EMSoftData/dicts/Ni-master-30kV-sig-0-thickness-300.h5'
 
 def generate_images(cfg_ebsd:str = 'configs/config_ebsd.yaml', cfg_train:str = 'configs/config_train.yaml'):
     cfg_train =  OmegaConf.load(cfg_train)
@@ -47,7 +47,7 @@ def generate_images(cfg_ebsd:str = 'configs/config_ebsd.yaml', cfg_train:str = '
 
     netG.eval()
     for (i,data) in enumerate(test_loader):
-        real, fake, rots, _ = data
+        fake, real, rots, _ = data
         generated_image = netG(fake)
         fake_patterns[i] = transform(generated_image).detach().numpy()
         real_patterns[i] = transform(real).detach().numpy()
@@ -58,7 +58,6 @@ def generate_images(cfg_ebsd:str = 'configs/config_ebsd.yaml', cfg_train:str = '
 
         
 def create_histograms(fake_patterns, real_patterns, fake_static_background, real_static_background):
-    print(fake_patterns.shape)
 
     fake_patterns = (fake_patterns - np.min(fake_patterns, axis = (1,2), keepdims=True)) / (fake_patterns.max(axis=(1, 2), keepdims=True) - fake_patterns.min(axis=(1, 2), keepdims=True))
 
@@ -99,15 +98,34 @@ if __name__ == '__main__':
     fake_patterns, real_patterns, real_rotations_yuxan, fake_static_background, real_static_background = generate_images()
 
     print("Loading dict, and performing dictionary indexing on test data")
-    dict = kp.load('/work3/s203768/EMSoftData/dicts/Dict_Ni_in_use.h5')
-    fake_signal = kp.signals.EBSD(fake_patterns - fake_static_background)
-    real_signal = kp.signals.EBSD(real_patterns - real_static_background)
+    dic = kp.load(DICT_PATH)
+    detector = dic.detector
+    signal_mask = ~kp.filters.Window("circular", detector.shape).astype(bool)
+    fake_signal = kp.signals.EBSD(fake_patterns- fake_static_background, detector = detector )
 
-    xmap_fake = fake_signal.dictionary_indexing(dictionary = dict, keep_n = 1)
-    rots_fake = dict.xmap.rotations[xmap_fake.simulation_indices[:]].data
+    real_signal = kp.signals.EBSD(real_patterns- real_static_background, detector = detector )
+ 
+    xmap_fake = fake_signal.dictionary_indexing(dictionary = dic, keep_n = 2, metric = 'ncc', n_per_iteration = 4000, signal_mask = signal_mask)
+    print(f"Indexing with Lucas' dictionary on the fake data: {xmap_fake.scores.mean()}")
 
-    xmap_real = real_signal.dictionary_indexing(dictionary = dict, keep_n = 1)
-    real_rots = dict.xmap.rotations[xmap_real.simulation_indices[:]].data
+    print(xmap_fake.rotations)
+
+    rots_fake = dic.xmap.rotations[xmap_fake.simulation_indices[:]].data
+    # print(rots_fake)
+
+    xmap_real = real_signal.dictionary_indexing(dictionary = dic, keep_n = 1, metric = 'ncc', n_per_iteration = 4000, signal_mask = signal_mask)
+    print(f"Indexing with Lucas' dictionary on the real data: {xmap_real.scores.mean()}")
+
+    real_rots = dic.xmap.rotations[xmap_real.simulation_indices[:]].data
+
+    fig, axes = plt.subplots(1, 2, figsize=(7, 14))
+    axes[0].imshow(fake_patterns[0], cmap='gray')
+    axes[0].set_title('Fake Pattern')
+    axes[0].axis('off')
+    axes[1].imshow(real_patterns[0], cmap='gray')
+    axes[1].set_title('Real Pattern')
+    axes[1].axis('off')
+    plt.savefig('results/fake_real_patterns.png')
 
     sym = oqu.symmetry.Oh  # m-3m symmetry
 

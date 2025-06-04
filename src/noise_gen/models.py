@@ -89,7 +89,7 @@ class Generator(nn.Module):
         self.dec8 = nn.Sequential(
             nn.ReLU(True),
             nn.ConvTranspose2d(ngf * 2, output_nc, kernel_size=4, stride=2, padding=1),
-            nn.Tanh()
+            nn.Sigmoid()
         )
 
     def forward(self, x):

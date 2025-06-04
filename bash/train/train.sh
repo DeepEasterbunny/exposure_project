@@ -1,10 +1,10 @@
 #!/bin/sh
-#BSUB -q gpuv100
+#BSUB -q gpua100
 #BSUB -J Train_gpu
-#BSUB -n 4
+#BSUB -n 6
 #BSUB -gpu "num=1:mode=exclusive_process"
 #BSUB -W 8:00
-#BSUB -R "rusage[mem=5GB]"
+#BSUB -R "rusage[mem=8GB]"
 #BSUB -u s203768@dtu.dk
 ###BSUB -B
 ###BSUB -N

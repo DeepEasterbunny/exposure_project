@@ -12,7 +12,7 @@ import torchvision.transforms.functional as TF
 import random
 
 from models import Generator, Discriminator
-from utils import initialize_weights, compute_static_background, visualize_images, visualize_static_background
+from utils import initialize_weights, compute_static_background, visualize_images, visualize_static_background, plot_losses
 # from rots import get_pattern_rotation
 from dataset import KikuchiDataset
 
@@ -22,8 +22,8 @@ FIND_UNIQUE = True
 USE_EXISTING_SPLIT = False
 REFINE_PATH_G = '/work3/s203768/EMSoftData/checkpoints/flips/30_net_G.pth'
 REFINE_PATH_D = '/work3/s203768/EMSoftData/checkpoints/flips/30_net_D.pth'
-REFINE = True
-starting_epoch = 30
+REFINE = False
+starting_epoch = 0
 
 resize_transform = transforms.Resize((128,128))
 back_resize_transform = transforms.Resize((75, 100))
@@ -98,12 +98,11 @@ def train_network(cfg_path:str = 'configs/config_ebsd.yaml', cfg:str = 'configs/
                 match_idx = matches.nonzero(as_tuple=True)[0][0].item()
                 unique_indices.append(match_idx)
                 
-
             unique_indices = torch.tensor(unique_indices, dtype=torch.long)
 
             dataset.fake = dataset.fake[unique_indices]
             dataset.real = dataset.real[unique_indices]
-            dataset.rots = unique_rotations
+            dataset.rots = dataset.rots[unique_indices]
             print(f"Number of datapoints after {len(dataset)}")
 
         train_size = int(cfg['train_split'] * len(dataset))
@@ -116,7 +115,7 @@ def train_network(cfg_path:str = 'configs/config_ebsd.yaml', cfg:str = 'configs/
 
     # Create the dataloaders
     train_loader = DataLoader(train_dataset, batch_size=cfg['batchSize'], num_workers=cfg['nThreads'], shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=1, num_workers=cfg['nThreads'], shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=cfg['batchSize'], num_workers=cfg['nThreads'], shuffle=True)
 
     experimental_static_background = compute_static_background(device = device, data_loader=train_loader, model = None)
 
@@ -125,7 +124,19 @@ def train_network(cfg_path:str = 'configs/config_ebsd.yaml', cfg:str = 'configs/
     epochs = cfg['optimizer']['epochs']
     save_epoch_freq = cfg['saving']['save_epoch_freq']
 
+    G_losses_train = []
+    L1_losses_train = []
+    sb_losses_train = []
+    G_losses_test = []
+    L1_losses_test = []
+    sb_losses_test = []
+
     for epoch in range(starting_epoch , epochs):
+        l1_loss_train = 0
+        errG_loss_train = 0
+        sb_loss_train = 0
+        netG.train()
+        netD.train()
         for i, data in enumerate(train_loader, 0):
             real_A, real_B, rotation , _ = data
 
@@ -176,21 +187,77 @@ def train_network(cfg_path:str = 'configs/config_ebsd.yaml', cfg:str = 'configs/
 
             # Cross correlation - higer = better
             # (quaternion) anglewidth, doesn't take into accout symmetry
-            generated_static_background = compute_static_background(device=device, data_loader=train_loader, model=netG)
+            # generated_static_background = compute_static_background(device=device, data_loader=train_loader, model=netG)
 
-            loss_static_background = criterionStaticBacground(experimental_static_background, generated_static_background)
+            generated_static_background = compute_static_background(device=device, batch = fake_B)
+
+            loss_static_background = criterionStaticBacground(experimental_static_background, generated_static_background) * cfg['loss']['sb']
 
             errG_total = errG + errL1 + loss_static_background
+
+            errG_loss_train += errG.item()
+            l1_loss_train += errL1.item()
+            sb_loss_train += loss_static_background
 
             errG_total.backward(retain_graph=True)
             optimizerG.step()
         
+        G_losses_train.append(errG_loss_train / len(train_loader))
+        L1_losses_train.append(l1_loss_train / len(train_loader))
+        sb_losses_train.append((sb_loss_train / len(train_loader)).detach().cpu().item())
 
-        if epoch % save_epoch_freq == 0:
-            torch.save(netG.state_dict(), os.path.join(cfg['saving']['checkpoints_dir'], f'{epoch}_net_G.pth'))
-            torch.save(netD.state_dict(), os.path.join(cfg['saving']['checkpoints_dir'], f'{epoch}_net_D.pth'))
-            visualize_images(netG, test_loader, device, back_resize_transform, epoch, cfg)
-            visualize_static_background(netG, test_loader, device, experimental_static_background.cpu().squeeze(0), epoch,cfg)
+        netG.eval()
+        netD.eval()
+
+        l1_loss_test = 0
+        errG_loss_test = 0
+        sb_loss_test = 0
+        for i, data in enumerate(test_loader, 0):
+            real_A, real_B, rotation , _ = data
+
+            real_B = real_B.clone()  
+            real_A = real_A.to(device)
+            real_B = real_B.to(device)
+            rotation = rotation.to(device)
+            
+            # Add random flips
+            if random.random() < 0.5:
+                real_A = TF.vflip(real_A)
+                real_B = TF.vflip(real_B)
+            if random.random() < 0.5:
+                real_A = TF.hflip(real_A)
+                real_B = TF.hflip(real_B)
+
+            fake_B = netG(real_A)
+
+            output = netD(torch.cat((real_A, fake_B.detach()), dim = 1))
+
+            label = torch.full(output.size(), 1, dtype=torch.float, device=device)
+
+            errG = criterion(output, label)
+            errL1 = criterionAE(fake_B, real_B) * cfg['loss']['lambda_L1']
+            generated_static_background = compute_static_background(device=device, data_loader=train_loader, model=netG)
+
+            loss_static_background = criterionStaticBacground(experimental_static_background, generated_static_background) * cfg['loss']['sb']
+
+            errG_total = errG + errL1 + loss_static_background
+
+            errG_loss_test += errG.item()
+            l1_loss_test += errL1.item()
+            sb_loss_test += loss_static_background
+
+        G_losses_test.append(errG_loss_test / len(test_loader))
+        L1_losses_test.append(l1_loss_test / len(test_loader))
+        sb_losses_test.append((sb_loss_test / len(test_loader)).detach().cpu().item())
+
+        plot_losses(G_losses_train, L1_losses_train, sb_losses_train, G_losses_test, L1_losses_test, sb_losses_test, cfg)
+
+
+        # if (epoch + 1) % save_epoch_freq == 0:
+        #     torch.save(netG.state_dict(), os.path.join(cfg['saving']['checkpoints_dir'], f'{epoch}_net_G.pth'))
+        #     torch.save(netD.state_dict(), os.path.join(cfg['saving']['checkpoints_dir'], f'{epoch}_net_D.pth'))
+        #     visualize_images(netG, test_loader, device, back_resize_transform, epoch, cfg)
+        #     visualize_static_background(netG, test_loader, device, experimental_static_background.cpu().squeeze(0), epoch,cfg)
         print(f'End of epoch {epoch}/{epochs}')
 
     # Save final models

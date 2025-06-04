@@ -1,4 +1,4 @@
-batchSize: 1 
+batchSize: 15 
 nThreads: 4
 image-size:
   loadSize: 256  # scale images to this size
@@ -35,3 +35,4 @@ loss:
   lambda_L1: 100  # weight on L1 term in objective
   DI: 1
   lambda_DI: 1000
+  sb: 0

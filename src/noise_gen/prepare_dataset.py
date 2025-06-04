@@ -34,23 +34,8 @@ def main(cfg_path:str = 'configs/config_ebsd.yaml'):
     print(f"Using config path: {cfg_path}")
     cfg = OmegaConf.load(cfg_path)
 
-    # Rotation settings
-    use_eulers = cfg['experiments']['use_eulers']   
-    if use_eulers:
-        print("Loading rotations from euler file")
-    else:
-        print(f"Creating random rotations with orix.quaternions.Rotation")
-
-
     mp_path = Path(cfg['paths']['mp'])
     mp_names = get_mps(mp_path)
-    print(mp_names)
-
-    ###
-    # COMMENT ME OUT LATER
-    ###
-    # mp_names = [Path(cfg['paths']['emsoft_data'] + 'simulations') / 'Ni-master-30kV-sig-0-thickness-303.h5']
-    
     num_mps = len(mp_names)
 
     
@@ -98,30 +83,22 @@ def main(cfg_path:str = 'configs/config_ebsd.yaml'):
             convention="bruker"
         )
 
+        print(detector)
+
         detector_values = {"shape": (Qx, Qy),
-                           "pc": [PCX.mean(), PCY.mean(), DD.mean()],
-                           "sample_tilt": sample_tilt,
-                           "tilt": camera_tilt}
+                        "pc": [PCX.mean(), PCY.mean(), DD.mean()],
+                        "sample_tilt": sample_tilt,
+                        "tilt": camera_tilt}
         
 
         xmap = io.load(cfg['paths']['indexing'])
-
-        if use_eulers:
-            euler_path = cfg['paths']['euler_path']
-        else:
-            n_rots = cfg['experiments']['n_detector_angels']
-
-        # G = rotationFromEuler(euler_path)
-        # G = G.reshape(Ny, Nx)
         
         G = xmap.orientations
         G = G.reshape(Ny, Nx)
         
-        
         print("Getting patterns")
         s = mp_lp.get_patterns(rotations = G, detector = detector, show_progressbar=PROGRESS_BARS, compute = True)
         s.save(dict_name)
-        # Which way does reshape work? (Ny, Nx, 75, 100) -> (Ny x Nx, 75, 100), stack the collumns
 
         if CREATE_DATASET:
             s_data =s.data.reshape(-1, 75, 100)
@@ -152,7 +129,6 @@ def main(cfg_path:str = 'configs/config_ebsd.yaml'):
             rots_reshaped = np.delete(rots_reshaped, 183, axis=0)
             rots_reshaped = torch.tensor(rots_reshaped, dtype=torch.float32)
             print(rots_reshaped.shape)
-            # Find unique rows (unique 1x1x4 arrays)
 
             dataset = KikuchiDataset(fake = fake, real = real_patterns_scaled, detector_values=detector_values, rots = rots_reshaped)
 

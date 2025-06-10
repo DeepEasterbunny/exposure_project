@@ -100,17 +100,15 @@ def main(cfg_path:str = 'configs/config_ebsd.yaml'):
         
 
         rots  = sampling.get_sample_fundamental(
-            method="cubochoric", resolution=3, point_group=mp_lp.phase.point_group
+            method="cubochoric", resolution=1.5, point_group=mp_lp.phase.point_group
             )
-        
+        print(rots.shape)
         print("Getting patterns")
         s = mp_lp.get_patterns(rotations = rots, detector = detector, show_progressbar=PROGRESS_BARS, compute = True, dtype_out=np.float32)
         print(s.detector)
         s.save(dict_name)
 
         
-
-
 def get_mps(mp_path:str):
     mps = [file.name for file in mp_path.glob("*.h5")]
     if len(mps) == 0:

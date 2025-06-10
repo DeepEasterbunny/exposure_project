@@ -22,7 +22,7 @@
  EkeV = 30.D0,
  Ehistmin = 10.D0,
  Ebinsize = 1.0D0,
- depthmax = 30.0D0,
+ depthmax = 30.0D0, 
  depthstep = 1.0D0,
  dataname = 'simulations_ebsd/Ni-master-30kV-sig-0-thickness-300.h5',
  Notify = 'Off'

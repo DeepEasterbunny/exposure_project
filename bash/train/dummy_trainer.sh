@@ -6,13 +6,13 @@
 #BSUB -R "rusage[mem=128MB]"
 ###BSUB -B
 ###BSUB -N
-#BSUB -o hpc_out/training/%J_dummy_without_kp.out
-#BSUB -e hpc_out/training/%J_dummy_without_kp.err
+#BSUB -o hpc_out/dummy/%J_dummy_kp_cpu.out
+#BSUB -e hpc_out/dummy/%J_dummy_kp_cpu.err
 
-nvidia-smi
+###nvidia-smi
 
-module load cuda/11.8
+###module load cuda/11.8
 
 source ../tkd/bin/activate
 
-python3 src/noise_gen/dummy.py
+python3 src/noise_gen/dummy3.py

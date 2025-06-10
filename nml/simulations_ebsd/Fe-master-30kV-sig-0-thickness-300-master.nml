@@ -1,9 +1,0 @@
- &EBSDmastervars
- dmin = 0.05,
- npx = 500,
- nthreads = 24,
- doLegendre = .FALSE.,
- energyfile = 'simulations_ebsd/Fe-master-30kV-sig-0-thickness-300.h5',
- BetheParametersFile = '/work3/s203768/EMSoftData/simulations_ebsd/BetheParameters.nml', Notify = 'Off', copyfromenergyfile = 'undefined', h5copypath = 'undefined', restart = .FALSE.,
- uniform = .FALSE.,
- useEnergyWeighting = .FALSE., /

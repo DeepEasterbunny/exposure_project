@@ -12,13 +12,12 @@ import torchvision.transforms.functional as TF
 import random
 
 from models import Generator, Discriminator
-from utils import initialize_weights, compute_static_background, visualize_images, visualize_static_background, plot_losses
-# from rots import get_pattern_rotation
+from utils import initialize_weights, compute_static_background, visualize_images, visualize_static_background, plot_losses, normalized_cross_correlation
 from dataset import KikuchiDataset
 
 import typer
 
-FIND_UNIQUE = True
+FIND_UNIQUE = False
 USE_EXISTING_SPLIT = False
 REFINE_PATH_G = '/work3/s203768/EMSoftData/checkpoints/flips/30_net_G.pth'
 REFINE_PATH_D = '/work3/s203768/EMSoftData/checkpoints/flips/30_net_D.pth'
@@ -118,6 +117,7 @@ def train_network(cfg_path:str = 'configs/config_ebsd.yaml', cfg:str = 'configs/
     test_loader = DataLoader(test_dataset, batch_size=cfg['batchSize'], num_workers=cfg['nThreads'], shuffle=True)
 
     experimental_static_background = compute_static_background(device = device, data_loader=train_loader, model = None)
+    static_background_train = torch.empty_like(experimental_static_background).clone()
 
     # Training loop
     print_freq = cfg['saving']['print_freq']
@@ -127,14 +127,20 @@ def train_network(cfg_path:str = 'configs/config_ebsd.yaml', cfg:str = 'configs/
     G_losses_train = []
     L1_losses_train = []
     sb_losses_train = []
+    ncc_losses_train = []
+    ncc_bg_losses_train = []
     G_losses_test = []
     L1_losses_test = []
     sb_losses_test = []
+    ncc_losses_test = []
+    ncc_bg_losses_test = []
 
     for epoch in range(starting_epoch , epochs):
         l1_loss_train = 0
         errG_loss_train = 0
         sb_loss_train = 0
+        ncc_loss_train = 0
+        ncc_bg_loss_train = 0
         netG.train()
         netD.train()
         for i, data in enumerate(train_loader, 0):
@@ -191,20 +197,31 @@ def train_network(cfg_path:str = 'configs/config_ebsd.yaml', cfg:str = 'configs/
 
             generated_static_background = compute_static_background(device=device, batch = fake_B)
 
-            loss_static_background = criterionStaticBacground(experimental_static_background, generated_static_background) * cfg['loss']['sb']
+            loss_static_background = criterionStaticBacground(experimental_static_background, generated_static_background) 
 
-            errG_total = errG + errL1 + loss_static_background
+            ncc_loss = normalized_cross_correlation(real_A, fake_B, static_background_train)
+            ncc_bg_loss = normalized_cross_correlation(real_A, fake_B)
+            
+
+
+            errG_total = errG + errL1 + loss_static_background * cfg['loss']['sb'] + (-ncc_bg_loss)*3
 
             errG_loss_train += errG.item()
             l1_loss_train += errL1.item()
-            sb_loss_train += loss_static_background
+            sb_loss_train += loss_static_background.item()
+            ncc_loss_train += ncc_loss.item()
+            ncc_bg_loss_train += ncc_bg_loss.item()
 
             errG_total.backward(retain_graph=True)
+            # print(f"Done with batch {i+1}/{len(train_loader)} in epoch {epoch+1}/{epochs}")
             optimizerG.step()
-        
+    
+
         G_losses_train.append(errG_loss_train / len(train_loader))
         L1_losses_train.append(l1_loss_train / len(train_loader))
-        sb_losses_train.append((sb_loss_train / len(train_loader)).detach().cpu().item())
+        sb_losses_train.append((sb_loss_train / len(train_loader)))
+        ncc_losses_train.append(ncc_loss_train / len(train_loader))
+        ncc_bg_losses_train.append(ncc_bg_loss_train / len(train_loader))
 
         netG.eval()
         netD.eval()
@@ -212,6 +229,8 @@ def train_network(cfg_path:str = 'configs/config_ebsd.yaml', cfg:str = 'configs/
         l1_loss_test = 0
         errG_loss_test = 0
         sb_loss_test = 0
+        ncc_loss_test = 0
+        ncc_bg_loss_test = 0
         for i, data in enumerate(test_loader, 0):
             real_A, real_B, rotation , _ = data
 
@@ -236,29 +255,39 @@ def train_network(cfg_path:str = 'configs/config_ebsd.yaml', cfg:str = 'configs/
 
             errG = criterion(output, label)
             errL1 = criterionAE(fake_B, real_B) * cfg['loss']['lambda_L1']
-            generated_static_background = compute_static_background(device=device, data_loader=train_loader, model=netG)
+            generated_static_background = compute_static_background(device=device, batch=fake_B)
 
-            loss_static_background = criterionStaticBacground(experimental_static_background, generated_static_background) * cfg['loss']['sb']
+            loss_static_background = criterionStaticBacground(experimental_static_background, generated_static_background) 
 
-            errG_total = errG + errL1 + loss_static_background
+            ncc_loss = normalized_cross_correlation(real_A, fake_B, static_background_train)
+            ncc_bg_loss = normalized_cross_correlation(real_A, fake_B)
+
+
+            errG_total = errG + errL1 + loss_static_background* cfg['loss']['sb'] + (1 - ncc_loss)
 
             errG_loss_test += errG.item()
             l1_loss_test += errL1.item()
-            sb_loss_test += loss_static_background
+            sb_loss_test += loss_static_background.item()
+            ncc_loss_test += ncc_loss.item()
+            ncc_bg_loss_test += ncc_bg_loss.item()
 
         G_losses_test.append(errG_loss_test / len(test_loader))
         L1_losses_test.append(l1_loss_test / len(test_loader))
-        sb_losses_test.append((sb_loss_test / len(test_loader)).detach().cpu().item())
+        sb_losses_test.append((sb_loss_test / len(test_loader)))
+        ncc_losses_test.append((ncc_loss_test / len(test_loader) ))
+        ncc_bg_losses_test.append((ncc_bg_loss_test / len(test_loader)))
 
-        plot_losses(G_losses_train, L1_losses_train, sb_losses_train, G_losses_test, L1_losses_test, sb_losses_test, cfg)
+        plot_losses(G_losses_train, L1_losses_train, sb_losses_train, G_losses_test, L1_losses_test, sb_losses_test, ncc_losses_train, ncc_bg_losses_train, ncc_losses_test, ncc_bg_losses_test , cfg)
 
 
-        # if (epoch + 1) % save_epoch_freq == 0:
-        #     torch.save(netG.state_dict(), os.path.join(cfg['saving']['checkpoints_dir'], f'{epoch}_net_G.pth'))
-        #     torch.save(netD.state_dict(), os.path.join(cfg['saving']['checkpoints_dir'], f'{epoch}_net_D.pth'))
-        #     visualize_images(netG, test_loader, device, back_resize_transform, epoch, cfg)
-        #     visualize_static_background(netG, test_loader, device, experimental_static_background.cpu().squeeze(0), epoch,cfg)
-        print(f'End of epoch {epoch}/{epochs}')
+        if (epoch + 1) % save_epoch_freq == 0:
+            print(f'End of epoch {epoch+1}/{epochs}')
+        
+        # if (epoch + 1) % 3 == 0 and epoch > 15:
+        #         print(f"End of epoch {epoch}")
+        #         print("Updating static background")
+        #         sb = compute_static_background(device=device, data_loader=train_loader, model=netG)
+        #         static_background_train = sb.clone()
 
     # Save final models
     torch.save(netG.state_dict(), os.path.join(cfg['saving']['checkpoints_dir'], 'final_net_G.pth'))

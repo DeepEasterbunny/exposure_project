@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 
 GENERATOR_PATH = '/work3/s203768/EMSoftData/checkpoints/flips/final_net_G.pth'
 DICT_PATH = '/work3/s203768/EMSoftData/dicts/Ni-master-30kV-sig-0-thickness-300.h5'
+# DICT_PATH = '/work3/s203768/EMSoftData/dicts/Dict_Ni_in_use.h5'
 
 def generate_images(cfg_ebsd:str = 'configs/config_ebsd.yaml', cfg_train:str = 'configs/config_train.yaml'):
     cfg_train =  OmegaConf.load(cfg_train)
@@ -105,7 +106,7 @@ if __name__ == '__main__':
 
     real_signal = kp.signals.EBSD(real_patterns- real_static_background, detector = detector )
  
-    xmap_fake = fake_signal.dictionary_indexing(dictionary = dic, keep_n = 2, metric = 'ncc', n_per_iteration = 4000, signal_mask = signal_mask)
+    xmap_fake = fake_signal.dictionary_indexing(dictionary = dic, keep_n = 1, metric = 'ncc', n_per_iteration = 4000, signal_mask = signal_mask)
     print(f"Indexing with Lucas' dictionary on the fake data: {xmap_fake.scores.mean()}")
 
     print(xmap_fake.rotations)

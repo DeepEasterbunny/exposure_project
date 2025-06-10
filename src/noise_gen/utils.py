@@ -21,17 +21,17 @@ def compute_static_background_im(im, static_background, total_images):
     static_background += im.sum(dim=0)
     total_images += im.size(0)
 
-    vflipped = TF.vflip(im)
-    static_background += vflipped.sum(dim=0)
-    total_images += vflipped.size(0)
+    # vflipped = TF.vflip(im)
+    # static_background += vflipped.sum(dim=0)
+    # total_images += vflipped.size(0)
 
-    hflipped = TF.hflip(im)
-    static_background += hflipped.sum(dim=0)
-    total_images += hflipped.size(0)
+    # hflipped = TF.hflip(im)
+    # static_background += hflipped.sum(dim=0)
+    # total_images += hflipped.size(0)
 
-    vhflipped = TF.hflip(vflipped)
-    static_background += vhflipped.sum(dim=0)
-    total_images += vhflipped.size(0)
+    # vhflipped = TF.hflip(vflipped)
+    # static_background += vhflipped.sum(dim=0)
+    # total_images += vhflipped.size(0)
 
     return static_background, total_images
 
@@ -127,39 +127,76 @@ def visualize_static_background(netG, test_loader, device, experimental_static_b
     plt.close(fig)
 
 
-def plot_losses(G_train_loss, L1_train_loss, sb_train_loss, G_test_loss, L1_test_loss, sb_test_loss, cfg):
+def plot_losses(G_train_loss, L1_train_loss, sb_train_loss, G_test_loss, L1_test_loss, sb_test_loss, ncc_loss_train, ncc_bg_loss_train, ncc_loss_test, ncc_bg_loss_test , cfg):
     epoch = len(G_train_loss)
     epochs = range(epoch)
 
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-    axes[0].plot(epochs, G_train_loss)
-    axes[0].plot(epochs, G_test_loss)
-    axes[0].set_title('Generator loss')
-    axes[0].set_xlabel('Epoch')
-    axes[0].set_ylabel('Loss')
-    axes[0].legend(['Train', 'Test'])
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    axes[0,0].plot(epochs, G_train_loss)
+    axes[0,0].plot(epochs, G_test_loss)
+    axes[0,0].set_title('Generator loss')
+    axes[0,0].set_xlabel('Epoch')
+    axes[0,0].set_ylabel('Loss')
+    axes[0,0].legend(['Train', 'Test'])
 
-    axes[0].plot(epochs, G_train_loss)
-    axes[0].plot(epochs, G_test_loss)
-    axes[0].set_title('Generator loss')
-    axes[0].set_xlabel('Epoch')
-    axes[0].set_ylabel('Loss')
-    axes[0].legend(['Train', 'Test'])
+    axes[0,0].plot(epochs, G_train_loss)
+    axes[0,0].plot(epochs, G_test_loss)
+    axes[0,0].set_title('Generator loss')
+    axes[0,0].set_xlabel('Epoch')
+    axes[0,0].set_ylabel('Loss')
+    axes[0,0].legend(['Train', 'Test'])
 
-    axes[1].plot(epochs, L1_train_loss)
-    axes[1].plot(epochs, L1_test_loss)
-    axes[1].set_title('L1 loss')
-    axes[1].set_xlabel('Epoch')
-    axes[1].set_ylabel('Loss')
-    axes[1].legend(['Train', 'Test'])
+    axes[0,1].plot(epochs, L1_train_loss)
+    axes[0,1].plot(epochs, L1_test_loss)
+    axes[0,1].set_title('L1 loss')
+    axes[0,1].set_xlabel('Epoch')
+    axes[0,1].set_ylabel('Loss')
+    axes[0,1].legend(['Train', 'Test'])
 
-    axes[2].plot(epochs, sb_train_loss)
-    axes[2].plot(epochs, sb_test_loss)
-    axes[2].set_title('Static Background loss')
-    axes[2].set_xlabel('Epoch')
-    axes[2].set_ylabel('Loss')
-    axes[2].legend(['Train', 'Test'])
+    axes[0,2].plot(epochs, sb_train_loss)
+    axes[0,2].plot(epochs, sb_test_loss)
+    axes[0,2].set_title('Static Background loss')
+    axes[0,2].set_xlabel('Epoch')
+    axes[0,2].set_ylabel('Loss')
+    axes[0,2].legend(['Train', 'Test'])
+
+    # print(epochs)
+
+    axes[1,0].plot(epochs, ncc_loss_train)
+    axes[1,0].plot(epochs, ncc_loss_test)
+    axes[1,0].set_title('NCC loss')
+    axes[1,0].set_xlabel('Epoch')
+    axes[1,0].set_ylabel('Loss')
+    axes[1,0].legend(['Train', 'Test'])
+
+    axes[1,1].plot(epochs, ncc_bg_loss_train)
+    axes[1,1].plot(epochs, ncc_bg_loss_test)
+    axes[1,1].set_title('NCC Background dominated loss')
+    axes[1,1].set_xlabel('Epoch')
+    axes[1,1].set_ylabel('Loss')
+    axes[1,1].legend(['Train', 'Test'])
 
     plt.suptitle(f'Loss functions at epoch: {epoch}')
     plt.savefig(os.path.join(cfg['saving']['figure_dir'], f'loss_funs.png'))
     plt.close(fig)
+
+def normalized_cross_correlation(image1, image2, static_background = None):
+    if static_background is not None:
+        image2 = image2 - static_background
+
+    image1 = image1.squeeze(1)
+    image2 = image2.squeeze(1)
+
+    image1 = (image1 - image1.amin(dim=(1,2), keepdim=True)) / (image1.amax(dim=(1,2), keepdim=True) - image1.amin(dim=(1,2), keepdim=True))
+
+    image2 = (image2 - image2.amin(dim=(1,2), keepdim=True)) / (image2.amax(dim=(1,2), keepdim=True) - image2.amin(dim=(1,2), keepdim=True))
+
+    image1 = image1 - image1.mean(dim=(1,2), keepdim=True)
+    image2 = image2 - image2.mean(dim=(1,2), keepdim=True)
+
+    numerator = (image1 * image2).sum(dim=(1,2))
+    denominator = torch.sqrt((image1 ** 2).sum(dim=(1,2)) * (image2 ** 2).sum(dim=(1,2)))
+
+    result = torch.where(denominator == 0, torch.zeros_like(numerator), numerator / denominator)
+
+    return result.mean()  

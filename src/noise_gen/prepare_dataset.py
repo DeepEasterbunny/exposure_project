@@ -95,7 +95,8 @@ def main(cfg_path:str = 'configs/config_ebsd.yaml'):
         
         G = xmap.orientations
         G = G.reshape(Ny, Nx)
-        
+        print(Ny, Nx)
+        assert False
         print("Getting patterns")
         s = mp_lp.get_patterns(rotations = G, detector = detector, show_progressbar=PROGRESS_BARS, compute = True)
         s.save(dict_name)
@@ -110,6 +111,9 @@ def main(cfg_path:str = 'configs/config_ebsd.yaml'):
                         (real_patterns.max(axis=(1, 2), keepdims=True) - real_patterns.min(axis=(1, 2), keepdims=True))
             
             fake = np.delete(s_data, 183, axis=0)
+
+            fake_patterns_scaled = (fake - fake.min(axis=(1, 2), keepdims=True)) / \
+                        (fake.max(axis=(1, 2), keepdims=True) - fake.min(axis=(1, 2), keepdims=True))
 
             fig, axes = plt.subplots(5, 2, figsize=(7, 14))
             for i in range(5):
@@ -130,7 +134,7 @@ def main(cfg_path:str = 'configs/config_ebsd.yaml'):
             rots_reshaped = torch.tensor(rots_reshaped, dtype=torch.float32)
             print(rots_reshaped.shape)
 
-            dataset = KikuchiDataset(fake = fake, real = real_patterns_scaled, detector_values=detector_values, rots = rots_reshaped)
+            dataset = KikuchiDataset(fake = fake_patterns_scaled, real = real_patterns_scaled, detector_values=detector_values, rots = rots_reshaped)
 
             torch.save({"fake":dataset.fake, "real": dataset.real, "detector_values": detector_values, "rots": dataset.rots}, file_name)
 
